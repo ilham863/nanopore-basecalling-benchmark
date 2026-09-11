@@ -1,0 +1,15 @@
+# Normalisasi akhir baris. Tanpa ini, basecall.sh yang di-clone di Windows
+# bisa berakhir CRLF dan Ubuntu menolaknya: "bad interpreter: /usr/bin/env bash^M".
+* text=auto
+
+# Wajib LF: dijalankan di Linux
+*.sh   text eol=lf
+*.py   text eol=lf
+
+# Windows-only
+*.ps1  text eol=crlf
+
+*.md   text eol=lf
+*.pdf  binary
+*.png  binary
+*.zip  binary

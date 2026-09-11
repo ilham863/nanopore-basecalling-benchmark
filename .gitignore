@@ -1,0 +1,34 @@
+# ============================================================
+#  Yang tidak pernah di-commit: data uji dan keluaran pengujian.
+#  Yang di-commit hanya skrip dan dokumen.
+# ============================================================
+
+# --- Dataset POD5 (ratusan GB) dan hasil pengujian ---
+dataset/
+hasil/
+*.pod5
+*.bam
+
+# --- Keluaran skrip. machine_spec.json memuat nama host & tata letak disk ---
+marathon_summary.csv
+machine_spec.json
+report.html
+report_*.html
+report_final.html
+gpu_loop_*.csv
+RunningParameter.txt
+dorado_loop_*.log
+*.log
+
+# --- Artefak antara: dibangun ulang dari .md oleh bin/md2html.py.
+#     PDF tetap di-commit karena itu yang diserahkan ke manajemen. ---
+Standarisasi-Pengujian-Hardware.html
+
+# --- Sampah OS & editor ---
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+.vscode/
+.idea/
+__pycache__/

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>Rasional Uji Marathon Basecalling pada Laptop</title>
+<style>
+@page { size: A4; margin: 18mm 16mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5pt; line-height: 1.55;
+       color: #16202b; margin: 0; }
+h1 { font-size: 19pt; margin: 0 0 2mm; color: #0b3d62; line-height: 1.2; }
+h2 { font-size: 13pt; margin: 9mm 0 3mm; color: #0b3d62;
+     border-bottom: 1.5pt solid #0b3d62; padding-bottom: 1.5mm; }
+h3 { font-size: 11pt; margin: 5mm 0 2mm; color: #1b4f72; }
+p  { margin: 0 0 3mm; text-align: justify; }
+.sub { color: #5a6a78; font-size: 9.5pt; margin-bottom: 6mm; }
+table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 9.5pt; }
+th { background: #0b3d62; color: #fff; text-align: left; padding: 2mm 2.5mm; font-weight: 600; }
+td { border-bottom: 0.5pt solid #ccd6e0; padding: 2mm 2.5mm; vertical-align: top; }
+tr:nth-child(even) td { background: #f4f8fb; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+.box { border-left: 3pt solid #0b3d62; background: #f4f8fb; padding: 3mm 4mm; margin: 4mm 0; }
+.warn { border-left-color: #b8791a; background: #fdf7ec; }
+.ok { border-left-color: #1e7a46; background: #f0f8f3; }
+code { font-family: Consolas, monospace; font-size: 9pt; background: #eef2f6;
+       padding: 0.5mm 1mm; border-radius: 2px; }
+pre { font-family: Consolas, monospace; font-size: 8.5pt; background: #1e2a35; color: #e8eef4;
+      padding: 3mm; border-radius: 3px; white-space: pre-wrap; margin: 2mm 0 4mm; }
+ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+li { margin-bottom: 1.5mm; }
+.foot { margin-top: 8mm; padding-top: 3mm; border-top: 0.5pt solid #ccd6e0;
+        font-size: 8.5pt; color: #5a6a78; }
+.pass { color: #1e7a46; font-weight: 600; }
+.fail { color: #b02a37; font-weight: 600; }
+h2 { break-after: avoid; } table, pre, .box { break-inside: avoid; }
+</style></head><body>
+
+<h1>Rasional Uji Marathon Basecalling pada Laptop</h1>
+<div class="sub">Spesifikasi perangkat PromethION&nbsp;2&nbsp;Solo, dasar pemilihan dataset POD5
+210&nbsp;GB, standar benchmarking berjenjang T1&ndash;T4, dan perbandingan terhadap spesifikasi host
+resmi Oxford Nanopore Technologies<br>
+Dokumen internal &middot; disusun 11 September 2026</div>
+
+<h2>1. Ringkasan</h2>
+<p>Dokumen ini menetapkan tiga hal. <b>Pertama</b>, kapasitas sesungguhnya perangkat
+PromethION&nbsp;2&nbsp;Solo, termasuk kebutuhan POD5 maksimumnya. <b>Kedua</b>, alasan teknis
+pemilihan dataset POD5 sebesar 210&nbsp;GB sebagai beban uji, dan bagaimana dataset sekecil itu tetap
+dapat merepresentasikan beban P2&nbsp;Solo. <b>Ketiga</b>, standar beban uji berjenjang
+(T1&ndash;T4) beserta protokol pengujian yang memisahkan benchmark kemampuan dari uji ketahanan,
+spesifikasi host resmi ONT, dan analisis kesenjangan terhadap laptop yang tersedia.</p>
+
+<div class="box">
+<b>Kesimpulan utama:</b> P2&nbsp;Solo membutuhkan hingga <b>4,06&nbsp;TB POD5 per sesi</b> (dua flow
+cell pada keluaran maksimum teoretis), bukan 1,3&nbsp;TB seperti yang sering diasumsikan. Dataset uji
+210&nbsp;GB dipilih karena merupakan keluaran nyata satu flow cell MinION Mk1B pada throughput
+maksimum, sekaligus satu-satunya ukuran yang muat pada NVMe 1&nbsp;TB tanpa mengorbankan ruang kerja.
+Beban hingga tingkat maksimum P2&nbsp;Solo tetap dapat diuji melalui pengulangan terkendali, karena
+yang membebani GPU adalah <i>jumlah sinyal yang dibasecall</i>, bukan keunikan datanya.
+</div>
+
+<h2>2. Spesifikasi Perangkat PromethION 2 Solo</h2>
+<p>Penetapan standar benchmarking harus berangkat dari kapasitas perangkat yang sesungguhnya.
+Satu hal yang sering terlewat: P2&nbsp;Solo memiliki <b>dua posisi flow cell yang dapat dialamatkan
+secara independen</b>, sehingga beban puncaknya adalah dua kali beban satu flow cell.</p>
+
+<table>
+<tr><th>Spesifikasi</th><th>Nilai</th></tr>
+<tr><td>Posisi flow cell</td><td><b>2</b>, dapat dialamatkan independen</td></tr>
+<tr><td>Jenis flow cell</td><td>FLO-PRO114M, FLO-PRO004RA</td></tr>
+<tr><td>Keluaran maksimum per flow cell</td><td>Hingga 290 Gbases (perhitungan maksimum teoretis / TMO)</td></tr>
+<tr><td>Dimensi dan bobot</td><td>152 &times; 110 &times; 87 mm, 1,5 kg</td></tr>
+<tr><td>Catu daya</td><td>100&ndash;240 VAC (50/60 Hz), konsumsi puncak 60 W</td></tr>
+<tr><td>Koneksi</td><td>1&times; USB Type-C (3.0, 5 Gbps), 1&times; barrel 12 VDC</td></tr>
+<tr><td>Suhu operasi</td><td>Sekuensing pada 18&ndash;25&nbsp;&deg;C; elektronik berfungsi 5&ndash;40&nbsp;&deg;C</td></tr>
+</table>
+
+<h3>2.1 Kapasitas POD5 maksimum</h3>
+<p>Dengan mengalikan tabel estimasi penyimpanan ONT terhadap dua posisi flow cell, diperoleh batas
+atas kebutuhan penyimpanan POD5 untuk satu sesi sekuensing penuh:</p>
+
+<table>
+<tr><th>Skenario</th><th class="n">Gbases</th><th class="n">POD5</th><th class="n">FASTQ.gz</th><th class="n">BAM + mod</th></tr>
+<tr><td>1 flow cell, nominal</td><td class="n">100</td><td class="n">700 GB</td><td class="n">65 GB</td><td class="n">60 GB</td></tr>
+<tr><td>1 flow cell, tinggi</td><td class="n">200</td><td class="n">1.400 GB</td><td class="n">130 GB</td><td class="n">120 GB</td></tr>
+<tr><td>1 flow cell, TMO</td><td class="n">290</td><td class="n">2.030 GB</td><td class="n">188,5 GB</td><td class="n">174 GB</td></tr>
+<tr><td><b>2 flow cell, TMO (maksimum perangkat)</b></td><td class="n"><b>580</b></td><td class="n"><b>4.060 GB</b></td><td class="n"><b>377 GB</b></td><td class="n"><b>348 GB</b></td></tr>
+</table>
+
+<div class="box">
+<b>Angka POD5 maksimum P2 Solo adalah &plusmn;4,06 TB per sesi</b> (dua flow cell pada TMO), bukan
+1,3&nbsp;TB. Nilai 1,3&nbsp;TB hanyalah satu flow cell pada keluaran nominal tinggi. Inilah yang
+menjelaskan mengapa ONT merekomendasikan SSD 8&nbsp;TB: kira-kira 4&nbsp;TB untuk POD5, ditambah
+keluaran basecalling, berkas sementara, dan ruang kerja.
+</div>
+
+<p>Perlu dicatat bahwa POD5 ditulis secara berkelanjutan selama sekuensing berlangsung. Bila
+basecalling diaktifkan, penulisan POD5 dapat dimatikan, namun penyimpanan sementara tambahan tetap
+dibutuhkan. Angka di atas karena itu merupakan batas atas untuk perencanaan kapasitas, bukan
+kebutuhan yang selalu terjadi.</p>
+
+<h2>3. Dasar Pemilihan Dataset 210 GB</h2>
+
+<h3>3.1 Angka 210 GB bukan angka sembarangan</h3>
+<p>Nilai tersebut diambil langsung dari tabel estimasi penyimpanan ONT untuk MinION Mk1B, pada
+titik throughput tertinggi yang didokumentasikan. Dengan menggunakan angka ini, beban uji identik
+dengan beban produksi sesungguhnya pada perangkat MinION &mdash; bukan hasil pemotongan sembarang.</p>
+
+<table>
+<tr><th>Keluaran flow cell (Gbases)</th><th class="n">POD5 (GB)</th><th class="n">FASTQ.gz (GB)</th><th class="n">BAM + modifikasi (GB)</th></tr>
+<tr><td>10</td><td class="n">70</td><td class="n">6,5</td><td class="n">6</td></tr>
+<tr><td>15</td><td class="n">105</td><td class="n">9,75</td><td class="n">9</td></tr>
+<tr><td><b>30 (dipakai)</b></td><td class="n"><b>210</b></td><td class="n">19,5</td><td class="n">18</td></tr>
+</table>
+<p style="font-size:9pt;color:#5a6a78;margin-top:-2mm">Sumber: tabel estimasi penyimpanan MinION Mk1B, ONT, N50 baca 23&nbsp;kb.</p>
+
+<h3>3.2 Kendala kapasitas: NVMe 1 TB</h3>
+<p>Laptop uji hanya memiliki penyimpanan internal 1&nbsp;TB. Dataset P2&nbsp;Solo penuh sebesar
+1,3&nbsp;TB secara fisik tidak muat, bahkan sebelum memperhitungkan ruang untuk sistem operasi dan
+keluaran BAM. Dataset 210&nbsp;GB menyisakan margin yang lapang:</p>
+
+<table>
+<tr><th>Komponen</th><th class="n">Ukuran</th><th>Keterangan</th></tr>
+<tr><td>Sistem operasi, Dorado, model</td><td class="n">~100 GB</td><td>Tetap</td></tr>
+<tr><td>Dataset POD5 masukan</td><td class="n">210 GB</td><td>Hanya dibaca, tidak berubah</td></tr>
+<tr><td>BAM sementara (puncak, satu pass)</td><td class="n">~19 GB</td><td>Dihapus setiap loop selesai</td></tr>
+<tr><td>Log dan metrik GPU, 7 hari</td><td class="n">&lt; 1 GB</td><td>Diabaikan</td></tr>
+<tr><td><b>Sisa ruang bebas</b></td><td class="n"><b>~670 GB</b></td><td class="pass">Aman</td></tr>
+</table>
+
+<div class="box ok">
+<b>Kunci efisiensi:</b> keluaran BAM dihapus otomatis segera setelah divalidasi. Tanpa mekanisme ini,
+marathon 7 hari akan menumpuk ratusan gigabyte keluaran yang tidak pernah dipakai dan memenuhi
+drive sebelum pengujian selesai. Yang disimpan permanen hanya berkas ringkasan dan log.
+</div>
+
+<h3>3.3 Emulasi beban P2 Solo melalui pengulangan</h3>
+<p>Beban komputasi basecalling bersifat proporsional terhadap jumlah sinyal yang diproses, bukan
+terhadap keunikan bacaan. Karena itu, memproses dataset 210&nbsp;GB sebanyak 6,3&nbsp;kali memberi
+GPU beban kerja yang setara dengan satu flow cell P2&nbsp;Solo berukuran 1,3&nbsp;TB.</p>
+
+<table>
+<tr><th>Besaran</th><th class="n">Nilai</th></tr>
+<tr><td>Satu flow cell P2 Solo (POD5)</td><td class="n">1,3 TB (&asymp; 190 Gbases)</td></tr>
+<tr><td>Dataset uji tersedia</td><td class="n">210 GB</td></tr>
+<tr><td>Pengulangan per satu &ldquo;run virtual&rdquo;</td><td class="n">6,3 pass</td></tr>
+</table>
+
+<p>Skrip melakukan pembukuan ini secara otomatis: akumulasi data yang telah dibasecall dicatat
+lintas loop dan dinyatakan dalam satuan run virtual, sehingga laporan akhir menyatakan berapa
+flow cell P2&nbsp;Solo yang setara telah diproses selama 7 hari.</p>
+
+<div class="box warn">
+<b>Batas keabsahan metode.</b> Pengulangan sah untuk menguji beban GPU, stabilitas termal, ketahanan
+driver, dan kebocoran memori &mdash; yang memang menjadi sasaran uji marathon. Metode ini <b>tidak</b>
+menguji kemampuan menampung 1,3&nbsp;TB sekaligus, dan keterbatasan itu justru merupakan temuan yang
+dibahas pada Bagian&nbsp;7.
+</div>
+
+<p>Pengulangan data yang sama juga memberi keuntungan metodologis: karena setiap pass mengerjakan
+bacaan yang identik, selisih durasi antar-loop menjadi ukuran degradasi yang bersih. Bila loop ke-40
+lebih lambat dibanding loop ke-2, penyebabnya pasti kondisi perangkat &mdash; bukan kebetulan komposisi
+data. Dengan data yang selalu baru, kedua faktor itu tidak dapat dipisahkan.</p>
+
+<h2>4. Standar Beban Uji Berjenjang (T1&ndash;T4)</h2>
+<p>Agar hasil pengujian dapat dibandingkan antar-mesin dan antar-waktu, beban uji dinyatakan dalam
+empat tingkat baku. Setiap tingkat merujuk pada skenario perangkat nyata, bukan angka yang dipilih
+sembarang. Seluruh tingkat dijalankan dari dataset fisik yang sama berukuran 210&nbsp;GB; yang
+membedakan hanyalah jumlah akumulasi data yang harus dicapai.</p>
+
+<table>
+<tr><th>Tingkat</th><th>Skenario acuan</th><th class="n">Gbases</th><th class="n">POD5 target</th><th class="n">Pengulangan</th><th class="n">Laju minimum</th></tr>
+<tr><td><b>T1</b> &mdash; Dasar</td><td>MinION Mk1B, 1 flow cell</td><td class="n">30</td><td class="n">210 GB</td><td class="n">1,0&times;</td><td class="n">3 GB/jam</td></tr>
+<tr><td><b>T2</b> &mdash; Standar</td><td>P2 Solo, 1 flow cell nominal</td><td class="n">190</td><td class="n">1,3 TB</td><td class="n">6,3&times;</td><td class="n">19 GB/jam</td></tr>
+<tr><td><b>T3</b> &mdash; Penuh</td><td>P2 Solo, 2 flow cell nominal</td><td class="n">380</td><td class="n">2,6 TB</td><td class="n">12,7&times;</td><td class="n">37 GB/jam</td></tr>
+<tr><td><b>T4</b> &mdash; Maksimum</td><td>P2 Solo, 2 flow cell TMO</td><td class="n">580</td><td class="n">4,06 TB</td><td class="n">19,3&times;</td><td class="n">57 GB/jam</td></tr>
+</table>
+
+<p>Kolom <i>laju minimum</i> adalah kecepatan basecalling yang harus dicapai agar host mampu
+mengimbangi penulisan data secara real-time; penurunannya dijelaskan pada Bagian&nbsp;4.1. Tingkat
+ini menyatakan <i>kemampuan</i> dan ditetapkan melalui Uji&nbsp;A pada Bagian&nbsp;5; ketahanannya
+dinilai terpisah melalui Uji&nbsp;B.</p>
+
+<h3>4.1 Asal-usul angka laju minimum</h3>
+<p>Kolom <i>laju minimum</i> bukan angka terbitan ONT, melainkan turunan dari dua besaran:</p>
+
+<pre>laju minimum (GB/jam)  =  POD5 target (GB)  /  durasi run (72 jam)</pre>
+
+<p>Komponen pertama, POD5 target, bersumber langsung dari tabel estimasi penyimpanan ONT. Komponen
+kedua, durasi 72&nbsp;jam, adalah lama run standar satu flow cell: kapasitas buffer flow cell memang
+mencukupi untuk sekitar 72&nbsp;jam pada kondisi optimal.</p>
+
+<table>
+<tr><th>Tingkat</th><th class="n">POD5 target</th><th class="n">Pembagian</th><th class="n">Hasil</th><th class="n">Dipakai</th></tr>
+<tr><td>T1</td><td class="n">210 GB</td><td class="n">210 / 72</td><td class="n">2,92</td><td class="n">3 GB/jam</td></tr>
+<tr><td>T2</td><td class="n">1.330 GB</td><td class="n">1330 / 72</td><td class="n">18,47</td><td class="n">19 GB/jam</td></tr>
+<tr><td>T3</td><td class="n">2.660 GB</td><td class="n">2660 / 72</td><td class="n">36,94</td><td class="n">37 GB/jam</td></tr>
+<tr><td>T4</td><td class="n">4.060 GB</td><td class="n">4060 / 72</td><td class="n">56,39</td><td class="n">57 GB/jam</td></tr>
+</table>
+
+<div class="box ok">
+<b>Kesesuaian dengan basis ONT.</b> Pendekatan ini sejalan dengan cara ONT sendiri menghitung jumlah
+flow cell yang dapat &ldquo;diimbangi&rdquo; (<i>keep-up</i>) oleh sebuah host: dokumentasi MinKNOW
+menggunakan asumsi keluaran 30&nbsp;Gbases dalam 72&nbsp;jam untuk MinION dan GridION, serta
+100&nbsp;Gbases dalam 72&nbsp;jam untuk PromethION. Tingkat T1 pada tabel di atas memakai pasangan
+angka yang identik dengan asumsi MinION tersebut.
+</div>
+
+<p>Perlu ditegaskan bahwa tingkat T2 hingga T4 sengaja disusun <b>lebih ketat</b> daripada asumsi
+dasar ONT. Baseline ONT untuk PromethION adalah 100&nbsp;Gbases per flow cell (700&nbsp;GB POD5,
+setara 9,7&nbsp;GB/jam), sedangkan T2 memakai 190&nbsp;Gbases dan T4 memakai keluaran maksimum
+teoretis dua flow cell. Pilihan ini diambil agar standar tetap berlaku pada kondisi terbaik perangkat,
+bukan hanya pada keluaran rata-rata.</p>
+
+<div class="box warn">
+<b>Keterbatasan angka rata-rata.</b> Laju di atas adalah rata-rata sepanjang run, padahal keluaran
+sekuensing tidak merata: hasil tertinggi terjadi pada jam-jam awal dan menurun seiring berkurangnya
+pori aktif. Akibatnya laju penulisan data pada awal run lebih tinggi daripada rata-rata, sehingga
+host yang hanya pas memenuhi ambang masih dapat tertinggal di fase awal. Ambang ini karena itu
+merupakan syarat minimum, bukan jaminan, dan sebaiknya diberi margin.
+</div>
+
+<h3>4.2 Cara menjalankan tiap tingkat</h3>
+<p>Tingkat ditentukan melalui parameter <code>-vt</code>, yang menyatakan berapa TB POD5 dihitung
+sebagai satu run virtual. Skrip kemudian mengulang dataset secara otomatis sampai akumulasi tercapai
+dan melaporkan pencapaiannya dalam satuan run:</p>
+
+<pre>.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench_T1 -dd 7 -r -vt 0.205
+.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench_T2 -dd 7 -r -vt 1.3
+.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench_T3 -dd 7 -r -vt 2.6
+.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench_T4 -dd 7 -r -vt 4.06</pre>
+
+<p>Untuk perbandingan cepat antar-mesin tanpa menunggu 7 hari, gunakan beban kerja terkunci dengan
+jumlah bacaan identik. Dengan cara ini yang dibandingkan adalah durasi penyelesaian pekerjaan yang
+persis sama, bukan volume yang kebetulan terselesaikan dalam waktu tertentu:</p>
+
+<pre>.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench_ref -dd 0.25 -r -mr 400000</pre>
+
+<div class="box warn">
+<b>Aturan pembacaan hasil.</b> Loop pertama selalu lebih lambat karena Dorado mengunduh model dan
+cache disk masih dingin. Loop tersebut wajib dikeluarkan dari perhitungan; gunakan loop kedua dan
+seterusnya sebagai dasar pembanding.
+</div>
+
+<h3>4.3 Butir yang wajib dilaporkan</h3>
+<p>Agar hasil dari mesin berbeda dapat disandingkan, setiap laporan benchmark mencantumkan:</p>
+<ul>
+<li>Model basecalling dan versi Dorado yang dipakai &mdash; keduanya mengubah throughput secara drastis.</li>
+<li>Tingkat yang diuji (T1&ndash;T4) dan dataset sumber beserta ukurannya.</li>
+<li>Laju terukur dalam GB POD5 per jam, diambil dari median seluruh loop di luar loop pertama.</li>
+<li>Suhu GPU maksimum, daya rata-rata, dan clock SM rata-rata, sebagai bukti bahwa yang terukur
+adalah GPU dan bukan keterbatasan penyimpanan. Utilisasi GPU dilaporkan sebagai pelengkap saja.</li>
+<li>Batch size efektif, karena penurunan otomatis akibat keterbatasan VRAM memengaruhi hasil.</li>
+<li>Selisih laju antara loop awal dan loop akhir, sebagai ukuran degradasi termal.</li>
+</ul>
+
+<div class="box">
+<b>Catatan validitas.</b> Utilisasi GPU rata-rata di bawah sekitar 90% menandakan pengujian dibatasi
+oleh kecepatan baca penyimpanan, bukan oleh kemampuan GPU. Hasil semacam itu tetap sah sebagai
+gambaran sistem secara keseluruhan, namun tidak boleh dilaporkan sebagai kemampuan basecalling
+kartu grafis.
+</div>
+
+<h2>5. Protokol Pengujian: Benchmark dan Durability</h2>
+<p>Standar ini memisahkan dua pengujian yang kerap dicampur. Keduanya memakai dataset fisik yang sama,
+namun menjawab pertanyaan berbeda dan karena itu memiliki kriteria kelulusan sendiri.</p>
+
+<table>
+<tr><th>Aspek</th><th>Uji A &mdash; Benchmark</th><th>Uji B &mdash; Durability</th></tr>
+<tr><td>Pertanyaan</td><td>Seberapa cepat mesin ini?</td><td>Sanggupkah dipakai berkelanjutan?</td></tr>
+<tr><td>Durasi</td><td>2&ndash;4 jam</td><td>7 hari</td></tr>
+<tr><td>Beban</td><td>Terkunci, jumlah bacaan identik</td><td>Berkelanjutan sampai batas waktu</td></tr>
+<tr><td>Metrik utama</td><td>Laju absolut (GB POD5/jam)</td><td>Stabilitas laju dan ketersediaan</td></tr>
+<tr><td>Keluaran</td><td>Penetapan tingkat T1&ndash;T4</td><td>Lulus / tidak lulus durability</td></tr>
+<tr><td>Frekuensi</td><td>Setiap mesin, diulang tiga kali</td><td>Sekali per mesin atau per perubahan besar</td></tr>
+</table>
+
+<div class="box warn">
+<b>Mengapa tidak boleh digabung.</b> Pengujian 7 hari menghasilkan angka kecepatan yang sudah tercemar
+oleh penurunan termal, sehingga tidak sah dipakai membandingkan antar-mesin. Sebaliknya pengujian
+pendek tidak mungkin mengungkap degradasi yang baru muncul setelah berjam-jam. Satu angka tunggal
+tidak dapat mewakili keduanya.
+</div>
+
+<h3>5.1 Uji A &mdash; Benchmark kemampuan</h3>
+<p>Dijalankan pada mesin dalam kondisi dingin, tanpa beban lain. Beban kerja dikunci pada jumlah
+bacaan yang identik sehingga yang dibandingkan adalah durasi penyelesaian pekerjaan yang persis sama.</p>
+
+<pre>.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench -dd 0.25 -r -mr 400000</pre>
+
+<ol>
+<li>Buang loop pertama dari perhitungan (unduh model, cache disk dingin).</li>
+<li>Ambil sedikitnya tiga loop yang sah sesudahnya.</li>
+<li>Laju terukur = <b>median</b> kolom laju dari loop-loop tersebut, bukan rata-rata, agar satu
+pencilan tidak menggeser hasil.</li>
+<li>Cocokkan laju terukur terhadap ambang T1&ndash;T4 pada Bagian&nbsp;4 untuk menetapkan tingkat.</li>
+</ol>
+
+<p><b>Syarat keabsahan.</b> Hasil dinyatakan sah apabila sebaran laju antar-loop berada di bawah 5%
+dan ketiga indikator berikut terpenuhi. Kriteria ini sengaja tidak bertumpu pada utilisasi GPU,
+dengan alasan yang dijelaskan di bawah.</p>
+
+<table>
+<tr><th>Indikator</th><th>Kolom ringkasan</th><th class="n">Ambang</th></tr>
+<tr><td>Daya rata-rata GPU</td><td><code>gpu_avg_power_w</code></td><td class="n">&ge; 70% TDP kartu</td></tr>
+<tr><td>Clock SM rata-rata</td><td><code>gpu_avg_clock_mhz</code></td><td class="n">&ge; 90% clock boost</td></tr>
+<tr><td>Sebaran laju antar-loop</td><td><code>gb_per_hour</code></td><td class="n">&lt; 5%</td></tr>
+</table>
+
+<div class="box warn">
+<b>Mengapa utilisasi GPU tidak dipakai sebagai penentu.</b> Kolom <code>utilization.gpu</code> pada
+nvidia-smi tidak mengukur berapa besar kapasitas komputasi yang terpakai, melainkan
+<i>berapa persen waktu di mana setidaknya satu kernel sedang berjalan</i>. Sebuah kernel kecil yang
+terus-menerus menunggu data tetap tercatat mendekati 100%. Akibatnya nilai tersebut hampir selalu
+tinggi dan nyaris tidak pernah gagal, sehingga tidak dapat membedakan pengujian yang sah dari
+pengujian yang tertahan penyimpanan. Daya dan clock SM jauh lebih jujur: GPU yang benar-benar bekerja
+menarik daya mendekati TDP-nya.
+</div>
+
+<p><b>Uji linearitas sebagai pemastian akhir.</b> Bila ketiga indikator di atas masih meragukan,
+jalankan beban setengahnya lalu bandingkan durasinya:</p>
+
+<pre>.\Basecall.ps1 -i D:\pod5_210gb -o D:\bench_half -dd 0.25 -r -mr 200000</pre>
+
+<p>Pada sistem yang benar-benar dibatasi kemampuan GPU, separuh beban diselesaikan dalam kira-kira
+separuh waktu. Penyimpangan yang besar dari hubungan lurus tersebut menandakan adanya penghambat di
+luar GPU &mdash; umumnya penyimpanan, memori sistem, atau pembatasan termal.</p>
+
+<h3>5.2 Uji B &mdash; Durability 7 hari</h3>
+<p>Dijalankan tanpa gangguan selama tujuh hari penuh. Yang dinilai bukan seberapa cepat, melainkan
+seberapa kecil penurunannya.</p>
+
+<pre>.\Basecall.ps1 -i D:\pod5_210gb -o D:\durability -dd 7 -r -vt 1.3</pre>
+
+<table>
+<tr><th>Kriteria</th><th>Cara hitung</th><th class="n">Ambang lulus</th></tr>
+<tr><td>Retensi laju</td><td>Median laju 24 jam terakhir dibagi median laju 24 jam pertama</td><td class="n">&ge; 0,90</td></tr>
+<tr><td>Ketersediaan</td><td>Jumlah loop berstatus OK dibagi total loop</td><td class="n">&ge; 0,99</td></tr>
+<tr><td>Kegagalan tak pulih</td><td>Loop FAIL yang bukan OOM dan tidak pulih sendiri</td><td class="n">0</td></tr>
+<tr><td>Plato termal</td><td>Suhu maksimum harian tidak menaik secara monoton</td><td class="n">Stabil</td></tr>
+<tr><td>Stabilitas batch</td><td>Penurunan batch otomatis akibat kehabisan VRAM</td><td class="n">&le; 1 kali</td></tr>
+</table>
+
+<p>Seluruh besaran di atas dapat dihitung langsung dari <code>marathon_summary.csv</code> tanpa alat
+tambahan. Retensi laju adalah kriteria terpenting: nilai di bawah 0,90 berarti mesin kehilangan lebih
+dari sepersepuluh kemampuannya saat dipakai berkelanjutan, dan angka benchmark dari Uji&nbsp;A tidak
+boleh dipakai sebagai dasar perencanaan kapasitas untuk mesin tersebut.</p>
+
+<div class="box">
+<b>Pelaporan gabungan.</b> Sebuah mesin dinyatakan layak pada suatu tingkat apabila <i>lulus
+Uji&nbsp;A pada tingkat tersebut</i> <b>dan</b> <i>lulus seluruh kriteria Uji&nbsp;B</i>. Mesin yang
+lulus Uji&nbsp;A namun gagal Uji&nbsp;B tetap dapat dipakai untuk basecalling offline, tetapi tidak
+untuk basecalling real-time yang berlangsung berhari-hari.
+</div>
+
+<h3>5.3 Penempatan dataset dan implikasi penggunaan HDD</h3>
+<p>Laju penulisan data sekuensing jauh lebih rendah daripada yang dikesankan oleh angka
+terabyte-nya. Bila POD5 target dibagi durasi run 72&nbsp;jam, diperoleh laju sesungguhnya:</p>
+
+<table>
+<tr><th>Tingkat</th><th class="n">POD5 target</th><th class="n">GB/jam</th><th class="n">MB/detik</th></tr>
+<tr><td>T1 &mdash; MinION, 1 flow cell</td><td class="n">210 GB</td><td class="n">2,9</td><td class="n">0,8</td></tr>
+<tr><td>T2 &mdash; P2 Solo, 1 FC nominal</td><td class="n">1,3 TB</td><td class="n">18,5</td><td class="n">5,3</td></tr>
+<tr><td>T3 &mdash; P2 Solo, 2 FC nominal</td><td class="n">2,6 TB</td><td class="n">36,9</td><td class="n">10,5</td></tr>
+<tr><td>T4 &mdash; P2 Solo, 2 FC TMO</td><td class="n">4,06 TB</td><td class="n">56,4</td><td class="n">16,0</td></tr>
+</table>
+
+<p>Sebagai pembanding, HDD 7200&nbsp;rpm mencapai sekitar 120&ndash;200&nbsp;MB/detik untuk akses
+sekuensial. Artinya, untuk <b>akuisisi data semata</b>, HDD memiliki margin sekitar sepuluh kali
+lipat bahkan pada keluaran maksimum. Rekomendasi SSD dari ONT karena itu tidak berangkat dari laju
+rata-rata, melainkan dari pola akses.</p>
+
+<div class="box warn">
+<b>Risiko HDD terletak pada I/O campuran, bukan pada kecepatan menulis.</b> Ketika basecalling
+real-time aktif, penyimpanan harus melayani tiga aliran sekaligus: menulis POD5 baru, membaca POD5
+untuk dibasecall, dan menulis keluaran BAM. Beban acak semacam ini menurunkan HDD ke kisaran
+20&ndash;40&nbsp;MB/detik. Nilai tersebut masih di atas kebutuhan 16&nbsp;MB/detik pada T4, namun
+marginnya menjadi tipis dan rentan terhadap lonjakan sesaat.
+</div>
+
+<p><b>Konfigurasi yang disarankan.</b> Pisahkan peran penyimpanan berdasarkan pola aksesnya:</p>
+<ul>
+<li><b>Akuisisi tanpa basecalling real-time</b> &mdash; HDD memadai. ONT sendiri menyatakan bahwa host
+yang hanya melakukan akuisisi boleh memakai spesifikasi lebih rendah tanpa persyaratan GPU.</li>
+<li><b>Basecalling real-time</b> &mdash; gunakan SSD atau NVMe sebagai drive kerja, lalu pindahkan
+hasilnya ke HDD sebagai arsip setelah run selesai.</li>
+<li><b>Dataset benchmark</b> &mdash; <b>wajib</b> berada di NVMe. Dataset yang diletakkan di HDD akan
+membuat pengujian mengukur kecepatan penyimpanan, bukan kemampuan basecalling, dan hasilnya tidak
+memenuhi syarat keabsahan pada Bagian&nbsp;5.1.</li>
+</ul>
+
+<div class="box">
+<b>Deteksi otomatis.</b> Gejala penyimpanan menjadi penghambat paling jelas terbaca pada kolom
+<code>gpu_avg_power_w</code>: GPU yang menunggu data menarik daya jauh di bawah TDP-nya meskipun
+kolom <code>gpu_avg_util_pct</code> tetap menunjukkan angka tinggi. Pemastiannya dilakukan melalui
+uji linearitas pada Bagian&nbsp;5.1.
+</div>
+
+<h2>6. Spesifikasi Host Resmi PromethION 2 Solo</h2>
+<p>Berikut spesifikasi yang direkomendasikan ONT untuk komputer host P2&nbsp;Solo dengan basecalling
+real-time aktif.</p>
+
+<table>
+<tr><th>Komponen</th><th>Rekomendasi resmi ONT</th></tr>
+<tr><td>GPU</td><td>NVIDIA RTX 5090 (desktop), RTX PRO 6000 Blackwell Workstation Edition, atau A100</td></tr>
+<tr><td>CPU</td><td>Intel i7 atau lebih tinggi, 12 core ke atas, mendukung AVX-2 (Haswell atau lebih baru)</td></tr>
+<tr><td>RAM</td><td>64 GB ke atas</td></tr>
+<tr><td>Penyimpanan</td><td>SSD 8 TB, tampil sebagai satu volume tunggal (beberapa SSD harus RAID&nbsp;0)</td></tr>
+<tr><td>Sistem operasi</td><td>Windows 10/11, atau Ubuntu 22.04/24.04 LTS</td></tr>
+<tr><td>Koneksi</td><td>USB Type-C (USB 3.0 ke atas), langsung ke motherboard</td></tr>
+</table>
+
+<div class="box warn">
+<b>Pernyataan ONT mengenai laptop.</b> Dokumentasi resmi menyatakan bahwa meskipun laptop menawarkan
+portabilitas, kartu desktop umumnya memberi performa, efisiensi daya, dan manajemen termal yang lebih
+baik, sehingga <i>lebih sesuai</i> untuk beban komputasi berkelanjutan. ONT juga menyebutkan bahwa
+<b>GPU adalah komponen dengan pengaruh terbesar</b> terhadap performa.
+</div>
+
+<p>Perlu dicatat bahwa ONT menyediakan jalur alternatif: bila basecalling dilakukan di mesin lain,
+komputer host boleh memakai spesifikasi lebih rendah tanpa persyaratan GPU, karena tugasnya hanya
+akuisisi data.</p>
+
+<h2>7. Analisis Kesenjangan Laptop terhadap P2 Solo</h2>
+
+<table>
+<tr><th>Aspek</th><th>Rekomendasi ONT</th><th>Laptop uji</th><th>Status</th></tr>
+<tr><td>Penyimpanan, kapasitas</td><td>8 TB SSD (POD5 maks 4,06 TB + keluaran)</td><td>1 TB NVMe + HDD</td><td class="fail">Tidak memenuhi</td></tr>
+<tr><td>Penyimpanan, jenis</td><td>SSD</td><td>HDD untuk P2 Solo</td><td>Memadai untuk akuisisi; lihat Bagian 5.3</td></tr>
+<tr><td>RAM</td><td>64 GB+</td><td>32 GB</td><td class="fail">Di bawah rekomendasi</td></tr>
+<tr><td>CPU</td><td>12 core+</td><td>diverifikasi saat uji</td><td>Perlu dicek</td></tr>
+<tr><td>GPU</td><td>RTX 5090 / A100 kelas desktop</td><td>GPU laptop</td><td>Diukur oleh marathon</td></tr>
+<tr><td>Manajemen termal</td><td>Desktop lebih disukai</td><td>Pendinginan laptop</td><td>Diukur oleh marathon</td></tr>
+</table>
+
+<div class="box warn">
+<b>Penghalang utama adalah penyimpanan, bukan GPU.</b> Satu flow cell P2&nbsp;Solo menghasilkan
+1,3&nbsp;TB POD5 pada keluaran nominal, dan konfigurasi dua flow cell pada TMO mencapai 4,06&nbsp;TB,
+seluruhnya ditulis terus-menerus selama run berlangsung. NVMe 1&nbsp;TB tidak mampu menampung bahkan
+skenario satu flow cell, terlepas dari seberapa cepat GPU-nya. Kesenjangan ini bersifat mutlak dan tidak dapat
+dikompensasi oleh komponen lain; solusinya adalah penyimpanan eksternal berkecepatan tinggi
+(NVMe melalui USB4/Thunderbolt), bukan HDD.
+</div>
+
+<h3>7.1 Kriteria kelulusan tingkat kemampuan</h3>
+<p>Marathon menghasilkan laju basecalling dalam satuan GB POD5 per jam, yang kemudian dibandingkan
+terhadap ambang tiap tingkat pada Bagian&nbsp;4. Penafsiran hasilnya:</p>
+<ul>
+<li><b>Lulus T4 (&ge; 57 GB/jam)</b> &mdash; sanggup mengimbangi P2&nbsp;Solo dua flow cell pada
+keluaran maksimum secara real-time.</li>
+<li><b>Lulus T3 (&ge; 37 GB/jam)</b> &mdash; sanggup mengimbangi dua flow cell pada keluaran nominal.</li>
+<li><b>Lulus T2 (&ge; 19 GB/jam)</b> &mdash; sanggup mengimbangi satu flow cell P2&nbsp;Solo; untuk
+konfigurasi dua flow cell hanya layak sebagai basecalling offline.</li>
+<li><b>Lulus T1 (&ge; 3 GB/jam)</b> &mdash; layak untuk MinION Mk1B real-time; P2&nbsp;Solo hanya
+secara offline.</li>
+<li><b>Di bawah T1</b> &mdash; tidak memadai sebagai host basecalling real-time.</li>
+</ul>
+<p>Kelulusan pada suatu tingkat mensyaratkan laju bertahan sepanjang 7 hari. Laju awal yang tinggi
+namun merosot setelah beberapa jam menandakan keterbatasan termal, dan tidak dihitung lulus.</p>
+
+<h2>8. Parameter Pengujian</h2>
+<p>Perintah yang dijalankan, dengan dataset 210&nbsp;GB dan target emulasi satu flow cell
+P2&nbsp;Solo per 1,3&nbsp;TB terakumulasi:</p>
+<pre>.\Basecall.ps1 -i D:\pod5_210gb -o D:\marathon -dd 7 -r -vt 1.3</pre>
+
+<table>
+<tr><th>Parameter</th><th>Nilai</th><th>Alasan</th></tr>
+<tr><td>Model</td><td>dna_r10.4.1_e8.2_400bps_hac@v5.2.0_5mC_5hmC</td><td>HAC dengan deteksi modifikasi, mewakili beban produksi</td></tr>
+<tr><td>Durasi</td><td>7 hari</td><td>Menangkap degradasi termal yang tidak muncul pada uji pendek</td></tr>
+<tr><td>Batch size</td><td>Otomatis</td><td>Menyesuaikan VRAM tiap mesin; diturunkan sendiri bila terjadi kehabisan memori</td></tr>
+<tr><td>Ambang suhu</td><td>Otomatis</td><td>Dibaca dari ambang <i>slowdown</i> GPU dikurangi margin 5&nbsp;&deg;C</td></tr>
+<tr><td>Penyimpanan BAM</td><td>Dihapus</td><td>Keluaran tidak dipakai; mencegah drive penuh</td></tr>
+<tr><td>Ambang disk</td><td>Otomatis (~29 GB)</td><td>Dihitung dari ukuran POD5 masukan</td></tr>
+</table>
+
+<p>Metrik dicatat per loop ke berkas <code>marathon_summary.csv</code>, mencakup durasi, kode keluar,
+batch size efektif, ukuran BAM, laju GB per jam, POD5-setara terakumulasi, jumlah run virtual, suhu
+GPU maksimum, dan utilisasi GPU rata-rata.</p>
+
+<h3>8.1 Prasyarat operasional</h3>
+<ol>
+<li>Adaptor daya terhubung sepanjang pengujian; laptop tidak boleh beroperasi dengan baterai.</li>
+<li>Laptop diangkat 2&ndash;3&nbsp;cm agar saluran udara masuk di bagian bawah tidak tertutup.</li>
+<li>Penutup layar dibiarkan terbuka, dan aksi tutup-layar disetel ke <i>Do nothing</i>.</li>
+<li>Pembaruan Windows ditunda selama masa pengujian untuk mencegah restart otomatis.</li>
+<li>Pembatas pengisian baterai pada 80% diaktifkan bila tersedia, guna menekan degradasi sel akibat
+kombinasi muatan penuh dan suhu tinggi selama 7 hari.</li>
+<li>Laptop tidak digunakan untuk pekerjaan lain, karena aplikasi lain merebut VRAM dan mencemari
+hasil pengukuran.</li>
+</ol>
+
+<h2>9. Referensi</h2>
+<ul>
+<li>Oxford Nanopore Technologies &mdash; <i>PromethION 2 Solo device and IT specifications</i>.
+nanoporetech.com/document/requirements/promethion-2-solo-device-and-it-specifications</li>
+<li>Oxford Nanopore Technologies &mdash; <i>PromethION 2 Solo IT requirements</i> (dokumen legacy).
+nanoporetech.com/document/requirements/promethion-2s-it-req</li>
+<li>Oxford Nanopore Technologies &mdash; <i>PromethION 2 Solo Technical Specification</i>.
+nanoporetech.com/document/requirements/promethion-2s-spec</li>
+<li>Oxford Nanopore Technologies &mdash; <i>MinKNOW user guide</i>, asumsi keluaran flow cell dan
+perhitungan <i>keep-up</i>. nanoporetech.com/document/experiment-companion-minknow</li>
+<li>Oxford Nanopore Technologies &mdash; tabel estimasi penyimpanan MinION Mk1B dan PromethION 2 Solo,
+pada N50 baca 23&nbsp;kb.</li>
+</ul>
+
+<div class="foot">
+Dokumen internal infrastruktur bioinformatika &middot; disusun 11 September 2026.
+Angka kapasitas penyimpanan mengacu pada tabel estimasi ONT dengan asumsi N50 baca 23&nbsp;kb;
+keluaran sesungguhnya bervariasi menurut panjang bacaan dan kondisi flow cell.
+Spesifikasi host merupakan rekomendasi ONT per tanggal penyusunan dan dapat berubah.
+</div>
+
+</body></html>
